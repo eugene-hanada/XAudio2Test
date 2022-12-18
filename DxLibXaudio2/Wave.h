@@ -50,6 +50,19 @@ public:
 
 private:
 
+	/// <summary>
+	/// Fmtチャンクの読み込み
+	/// </summary>
+	/// <param name="file"></param>
+	void LoadFmt(std::ifstream& file);
+
+	/// <summary>
+	/// データチャンクの読み込み
+	/// </summary>
+	/// <param name="file"></param>
+	void LoadData(std::ifstream& file);
+
+
 	// データ
 	std::vector<unsigned char> data_;
 
@@ -62,14 +75,6 @@ private:
 		char id[4];
 		unsigned int size;
 		char type[4];
-	};
-
-	
-	// データ部分のヘッダー
-	struct DataHeader
-	{
-		char id[4];
-		unsigned int size;
 	};
 
 };

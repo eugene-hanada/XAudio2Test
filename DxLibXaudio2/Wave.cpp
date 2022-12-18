@@ -1,6 +1,7 @@
 #include "Wave.h"
 #include <fstream>
 
+
 Wave::Wave():
 	fmt_{}
 {
@@ -18,16 +19,40 @@ bool Wave::Load(const std::filesystem::path& path)
 	RIFF riff;
 	file.read(reinterpret_cast<char*>(&riff), sizeof(riff));
 
-	char id[4];
-	file.read(id, 4);
-	file.read(reinterpret_cast<char*>(&fmt_), sizeof(fmt_));
+	std::string id;
+	id.resize(4);
+	std::string fmtStr{ 'f','m','t',' ' };
 
-	DataHeader dh;
-	file.read(reinterpret_cast<char*>(&dh), sizeof(dh));
+	while (true)
+	{
+		file.read(id.data(), 4);
+		if (file.eof())
+		{
+			return true;
+		}
 
-	data_.resize(dh.size);
-	file.read(reinterpret_cast<char*>(data_.data()), dh.size);
-
+		if (id == fmtStr)
+		{
+			LoadFmt(file);
+		}
+		else
+		{
+			LoadData(file);
+		}
+	}
 
 	return true;
+}
+
+void Wave::LoadFmt(std::ifstream& file)
+{
+	file.read(reinterpret_cast<char*>(&fmt_), sizeof(fmt_));
+}
+
+void Wave::LoadData(std::ifstream& file)
+{
+	std::uint32_t size{ 0 };
+	file.read(reinterpret_cast<char*>(&size), sizeof(size));
+	data_.resize(size);
+	file.read(reinterpret_cast<char*>(data_.data()), size);
 }

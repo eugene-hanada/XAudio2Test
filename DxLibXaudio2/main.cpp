@@ -45,7 +45,8 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	{
 		return -1;
 	}
-	IXAudio2SourceVoice* source{ nullptr };
+	IXAudio2SourceVoice* source1{ nullptr };
+	IXAudio2SourceVoice* source2{ nullptr };
 	WAVEFORMATEX format{
 		wave.GetFmt().type,
 		wave.GetFmt().channel,
@@ -56,11 +57,24 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		0u
 	};
 
+
 	// ソースボイスの生成
-	if (FAILED(xAudio2->CreateSourceVoice(&source, &format)))
+	if (FAILED(xAudio2->CreateSourceVoice(&source1, &format)))
 	{
 		return -1;
 	}
+	if (FAILED(xAudio2->CreateSourceVoice(&source2, &format)))
+	{
+		return -1;
+	}
+
+	XAUDIO2_VOICE_SENDS send{};
+	XAUDIO2_SEND_DESCRIPTOR s;
+	s.Flags = 0;
+	s.pOutputVoice = masterVoice;
+	send.pSends = &s;
+	send.SendCount = 1;
+	//auto r = source1->SetOutputVoices(&send);
 
 	// バッファのセット
 	XAUDIO2_BUFFER buffer{};
@@ -70,26 +84,66 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	buffer.LoopCount = 0;
 
 	// ソースボイスにバッファを送る
-	if (FAILED(source->SubmitSourceBuffer(&buffer)))
+	if (FAILED(source1->SubmitSourceBuffer(&buffer)))
 	{
 		return -1;
 	}
 
 	// 再生開始
-	if (FAILED(source->Start()))
+	if (FAILED(source1->Start()))
 	{
 		return -1;
 	}
 
+
+
+
+
+	float nowVolume;
+	masterVoice->GetVolume(&nowVolume);
+	masterVoice->SetVolume(0.5f);
+
+	source2->SetVolume(0.25f);
+	bool isSource2Play{ false };
+
 	while (true)
 	{
 		XAUDIO2_VOICE_STATE state{};
-		source->GetState(&state);
+		source1->GetState(&state);
 
-		if (ProcessMessage() != 0 && state.BuffersQueued == 0)
+		if (ProcessMessage() != 0)
 		{
 			break;
 		}
+		if (state.BuffersQueued == 0&& !isSource2Play)
+		{
+			// ソースボイスにバッファを送る
+			if (FAILED(source2->SubmitSourceBuffer(&buffer)))
+			{
+				return -1;
+			}
+
+			// 再生開始
+			if (FAILED(source2->Start()))
+			{
+				return -1;
+			}
+			isSource2Play = true;
+		}
+
+
+		if (CheckHitKey(KEY_INPUT_UP))
+		{
+			nowVolume = std::clamp(nowVolume += 0.1f, 0.0f, 1.0f);
+			masterVoice->SetVolume(nowVolume);
+		}
+		if (CheckHitKey(KEY_INPUT_DOWN))
+		{
+			nowVolume = std::clamp(nowVolume -= 0.1f, 0.0f, 1.0f);
+			masterVoice->SetVolume(nowVolume);
+		}
+		
+
 		SetDrawScreen(DX_SCREEN_BACK);
 		ClsDrawScreen();
 
@@ -97,13 +151,14 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	}
 
 	// ソースボイスの破棄
-	source->DestroyVoice();
+	source1->DestroyVoice();
+	source2->DestroyVoice();
 
 	// マスターボイスの破棄
 	masterVoice->DestroyVoice();
 
 	// XAudio2の破棄
 	xAudio2->Release();
-	DxLib_End();
+	DxLib::DxLib_End();
 	return 0;
 }
